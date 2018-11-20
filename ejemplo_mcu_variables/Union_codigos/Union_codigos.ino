@@ -300,20 +300,22 @@ void peticionPut() {
     if (eventType == "mechanicFailure"){
         payload += "{\"failureCode\":";
         payload += String(failureCode);
+        payload += "}"
     } else if(eventType == "crash"){
         payload += "{\"aceleration\":";
         payload += String(crashAceleration);
         payload += ",";
         payload += "\"timestamp\":";
         payload += String(timestamp);
+        payload += "}"
     } else if(eventType == "laneChanged"){
         payload += "{\"oldLane\":";
         payload += String(oldLane);
         payload += ",";
         payload += "\"newLane\":";
         payload += String(newLane);
+        payload += "}"
     }
-    payload += "}"
     payload += ",";
     payload += "\"data\":";
     payload += "{\"fuelLevel\":";
