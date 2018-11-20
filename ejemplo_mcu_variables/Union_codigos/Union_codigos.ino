@@ -1,6 +1,6 @@
 //------LIBRERIAS-------
 
-#include <WiFiUdp.h>
+//#include <WiFiUdp.h>
 #include <ESP8266WiFi.h>
 #include "WifiLocation.h"
 
@@ -10,6 +10,7 @@
 #define PASSWD "" // Clave de tu red WiFi
 #define HOSTFIREBASE "probando-nodemcu.firebaseio.com" // Host o url de Firebase
 #define LOC_PRECISION 7 // Precision de latitud y longitud
+
 // Llamada a la API de Google
 WifiLocation location(GOOGLE_KEY);
 location_t loc; // Estructura de datos que devuelve la librera WifiLocation
@@ -21,18 +22,25 @@ String macStr = "";
 String nombreComun = "NodeMCU";
 String carld = "CAQR";
 int timestamp = 1;
-int fuelLevel = 2;
+float fuelLevel = 2;
 int km = 1;
-int aceleration = 0;
+float aceleration = 0;
 int rpm = 30;
 int kmh = 50;
 int lane = 1;
 int failureCode = 1;
 boolean airBagsActivated = false;
+String eventType = "None";
+float ran = 0;
+int r;
+float crashAceleration;
+int oldLane;
+int newLane;
 
 // Cliente WiFi
 WiFiClientSecure client;
 
+/*
 //Your UTC Time Zone Differance  India +5:30
 char HH = -3;
 char MM = 0;
@@ -45,6 +53,41 @@ byte packetBuffer[ NTP_PACKET_SIZE]; //buffer to hold incoming and outgoing pack
 
 // A UDP instance to let us send and receive packets over UDP
 WiFiUDP udp;
+*/
+
+/**********ciclo de eventos****/
+
+void mf(){
+  eventType = "mechanicFailure";
+  //r = sensorAuto() <---------permite saber a través de sensores que falla mecánica tiene
+  r = 1;
+  if (r==1){
+    failureCode=1;  //falla de motor
+  }else{
+    failureCode=2;  //falla de rueda
+  }
+}
+
+void choque(){
+  eventType = "crash";
+  crashAceleration = aceleration; //------la aceleracion al momento del choque
+  aceleration = 0;
+  kmh = 0;
+  airBagsActivated = true;
+}
+
+void carril(){
+  eventType="laneChanged";
+  oldLane = lane;
+  if(lane == 1){
+    newLane= 2;
+  }else {
+    newLane= 1;
+  }
+}
+
+
+/******************************/
 
 //=======================================================================
 //                     SETUP
@@ -66,8 +109,10 @@ void setup() {
   macStr = obtenerMac();
   Serial.print("MAC NodeMCU: ");
   Serial.println(macStr);
+  Firebase.begin("probando-nodemcu.firebaseio.com","STWipVGkAquf5p4ryBvIwrj6WtV41imjIBvpfcsj");
 }
 
+/*
 unsigned long sendNTPpacket(IPAddress& address){
   Serial.println("sending NTP packet...");
   // set all bytes in the buffer to 0
@@ -92,11 +137,13 @@ unsigned long sendNTPpacket(IPAddress& address){
   udp.write(packetBuffer, NTP_PACKET_SIZE);
   udp.endPacket();
 }
+*/
 
 //=======================================================================
 //                        LOOP
 //=======================================================================
 void loop() {
+  /*
   char hours, minutes, seconds;
   //get a random server from the pool
   WiFi.hostByName(ntpServerName, timeServerIP); 
@@ -171,7 +218,7 @@ void loop() {
   }
   // wait ten seconds before asking for the time again
   //delay(10000);
-
+  */
   // Obtenemos la geolocalizacion WiFi
   loc = location.getGeoFromWiFi();
   // Mostramos la informacion en el monitor serie
@@ -180,6 +227,10 @@ void loop() {
   Serial.println("Latitude: " + String(loc.lat, 7));
   Serial.println("Longitude: " + String(loc.lon, 7));
   Serial.println("Accuracy: " + String(loc.accuracy));
+  
+  //Genera el valor random para accion de eventos
+  eventAction();
+  
   // Hacemos la peticion HTTP mediante el metodo PUT
   peticionPut();
   // Esperamos 15 segundos
@@ -205,6 +256,24 @@ String obtenerMac() {
   return keyMac;
 }
 
+void eventAction(){
+    ran = random(100);
+    ran = ran / 100;
+    if (ran < 0,2){
+      mf();
+      }else if (ran < 0,5){
+          choque();
+        }else if (ran < 0,8){
+            carril();
+          }
+}
+
+void capturarStop() {             //-----------FALTA SABER LA VARIABLE EXACTA QUE SE DEBE CAPTURAR-------------------
+    String path = "/dispositivo/80:7D:3A:6E:B5:CA";
+    FirebaseObject object = Firebase.get(path);
+    String d1 = object.getString("carld");
+  }
+
 /********** FUNCION QUE REALIZA LA PETICION PUT **************/
 void peticionPut() {
   // Cerramos cualquier conexion antes de enviar una nueva peticion
@@ -220,14 +289,31 @@ void peticionPut() {
     toSend += HOSTFIREBASE;
     toSend += "\r\n" ;
     toSend += "Content-Type: application/json\r\n";
-    String payload = "{\"lat\":";
-    payload += String(loc.lat, LOC_PRECISION);
+    String payload = "{\"carld\":";
+    payload += carld;
     payload += ",";
-    payload += "\"lon\":";
-    payload += String(loc.lon, LOC_PRECISION);
+    payload += "\"timestamp\":";
+    payload += String(0);               //----------PREGUNTAR EN QUE FORMATO DEBE IR LA HORA----
     payload += ",";
-    payload += "\"prec\":";
-    payload += String(loc.accuracy);
+    payload += "\"eventType\":";
+    payload += eventType;
+    if (eventType == "mechanicFailure"){
+        payload += "{\"failureCode\":";
+        payload += String(failureCode);
+    } else if(eventType == "crash"){
+        payload += "{\"aceleration\":";
+        payload += String(crashAceleration);
+        payload += ",";
+        payload += "\"timestamp\":";
+        payload += String(timestamp);
+    } else if(eventType == "laneChanged"){
+        payload += "{\"oldLane\":";
+        payload += String(oldLane);
+        payload += ",";
+        payload += "\"newLane\":";
+        payload += String(newLane);
+    }
+    payload += "}"
     payload += ",";
     payload += "\"data\":";
     payload += "{\"fuelLevel\":";
@@ -248,9 +334,6 @@ void peticionPut() {
     payload += "\"lane\":";
     payload += String(lane);
     payload += "}";
-    payload += ",";
-    payload += "\"carld\": \"";
-    payload += carld;
     payload += "\"}";
     payload += "\r\n";
     toSend += "Content-Length: " + String(payload.length()) + "\r\n";
