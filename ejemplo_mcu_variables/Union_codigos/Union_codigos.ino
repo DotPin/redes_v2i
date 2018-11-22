@@ -1,7 +1,8 @@
 //------LIBRERIAS-------
 
-//#include <WiFiUdp.h>
+
 #include <ESP8266WiFi.h>
+#include <WiFiUdp.h>
 #include <FirebaseArduino.h>
 #include "WifiLocation.h"
 
@@ -38,14 +39,17 @@ float crashAceleration;
 int oldLane;
 int newLane;
 
+//time
+unsigned long epoch;
+
 // Cliente WiFi
 WiFiClientSecure client;
 
-/*
 //Your UTC Time Zone Differance  India +5:30
 char HH = -3;
 char MM = 0;
 
+unsigned int localPort = 2390; 
 IPAddress timeServerIP; // time.nist.gov NTP server address
 
 const char* ntpServerName = "ntp.shoa.cl";
@@ -54,7 +58,7 @@ byte packetBuffer[ NTP_PACKET_SIZE]; //buffer to hold incoming and outgoing pack
 
 // A UDP instance to let us send and receive packets over UDP
 WiFiUDP udp;
-*/
+
 
 /**********ciclo de eventos****/
 
@@ -106,6 +110,7 @@ void setup() {
     Serial.print("Status = ");
     Serial.println(WiFi.status());
   }
+  udp.begin(localPort);
   // Obtenemos la MAC como cadena de texto
   macStr = obtenerMac();
   Serial.print("MAC NodeMCU: ");
@@ -113,7 +118,7 @@ void setup() {
   Firebase.begin("probando-nodemcu.firebaseio.com","STWipVGkAquf5p4ryBvIwrj6WtV41imjIBvpfcsj");
 }
 
-/*
+
 unsigned long sendNTPpacket(IPAddress& address){
   Serial.println("sending NTP packet...");
   // set all bytes in the buffer to 0
@@ -138,24 +143,26 @@ unsigned long sendNTPpacket(IPAddress& address){
   udp.write(packetBuffer, NTP_PACKET_SIZE);
   udp.endPacket();
 }
-*/
+
 
 //=======================================================================
 //                        LOOP
 //=======================================================================
 void loop() {
-  /*
+  
   char hours, minutes, seconds;
   //get a random server from the pool
   WiFi.hostByName(ntpServerName, timeServerIP); 
 
   sendNTPpacket(timeServerIP); // send an NTP packet to a time server
+  
   // wait to see if a reply is available
   delay(1000);
   
   int cb = udp.parsePacket();
   if (!cb) {
     Serial.println("no packet yet");
+    epoch = 0;
   }
   else {
     Serial.print("packet received, length=");
@@ -179,7 +186,7 @@ void loop() {
     // Unix time starts on Jan 1 1970. In seconds, that's 2208988800:
     const unsigned long seventyYears = 2208988800UL;
     // subtract seventy years:
-    unsigned long epoch = secsSince1900 - seventyYears;
+    epoch = secsSince1900 - seventyYears;
     // print Unix time:
     Serial.println(epoch);
 
@@ -219,7 +226,8 @@ void loop() {
   }
   // wait ten seconds before asking for the time again
   //delay(10000);
-  */
+
+  /*
   // Obtenemos la geolocalizacion WiFi
   loc = location.getGeoFromWiFi();
 
@@ -229,6 +237,8 @@ void loop() {
   Serial.println("Latitude: " + String(loc.lat, 7));
   Serial.println("Longitude: " + String(loc.lon, 7));
   Serial.println("Accuracy: " + String(loc.accuracy));
+  */
+  
   //Genera el valor random para accion de eventos
   eventAction();
   
@@ -298,7 +308,7 @@ void peticionPut() {
     payload += "\"";
     payload += ",";
     payload += "\"timestamp\":";
-    payload += String(0);               //----------PREGUNTAR EN QUE FORMATO DEBE IR LA HORA----
+    payload += epoch;               //----------PREGUNTAR EN QUE FORMATO DEBE IR LA HORA----
     payload += ",";
     payload += "\"eventType\":";
     payload += "\"";
