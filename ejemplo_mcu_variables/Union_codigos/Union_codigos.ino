@@ -2,6 +2,7 @@
 
 //#include <WiFiUdp.h>
 #include <ESP8266WiFi.h>
+#include <FirebaseArduino.h>
 #include "WifiLocation.h"
 
 
@@ -300,21 +301,21 @@ void peticionPut() {
     if (eventType == "mechanicFailure"){
         payload += "{\"failureCode\":";
         payload += String(failureCode);
-        payload += "}"
+        payload += "}";
     } else if(eventType == "crash"){
         payload += "{\"aceleration\":";
         payload += String(crashAceleration);
         payload += ",";
         payload += "\"timestamp\":";
         payload += String(timestamp);
-        payload += "}"
+        payload += "}";
     } else if(eventType == "laneChanged"){
         payload += "{\"oldLane\":";
         payload += String(oldLane);
         payload += ",";
         payload += "\"newLane\":";
         payload += String(newLane);
-        payload += "}"
+        payload += "}";
     }
     payload += ",";
     payload += "\"data\":";
