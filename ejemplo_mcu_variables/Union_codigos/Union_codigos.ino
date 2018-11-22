@@ -7,8 +7,8 @@
 
 
 #define GOOGLE_KEY "AIzaSyDP4SOZgPpJCEYormxf53cA9tnFIPoxArk" // Clave API Google Geolocation
-#define SSID "redes_los_mejores" // SSID de tu red WiFi
-#define PASSWD "" // Clave de tu red WiFi
+#define SSID "iPhone Tomas" // SSID de tu red WiFi
+#define PASSWD "asdfghjkl123" // Clave de tu red WiFi
 #define HOSTFIREBASE "probando-nodemcu.firebaseio.com" // Host o url de Firebase
 #define LOC_PRECISION 7 // Precision de latitud y longitud
 
@@ -33,7 +33,7 @@ int failureCode = 1;
 boolean airBagsActivated = false;
 String eventType = "None";
 float ran = 0;
-int r;
+int r = 1;
 float crashAceleration;
 int oldLane;
 int newLane;
@@ -61,7 +61,6 @@ WiFiUDP udp;
 void mf(){
   eventType = "mechanicFailure";
   //r = sensorAuto() <---------permite saber a través de sensores que falla mecánica tiene
-  r = 1;
   if (r==1){
     failureCode=1;  //falla de motor
   }else{
@@ -85,6 +84,7 @@ void carril(){
   }else {
     newLane= 1;
   }
+  lane = newLane;
 }
 
 
@@ -222,13 +222,13 @@ void loop() {
   */
   // Obtenemos la geolocalizacion WiFi
   loc = location.getGeoFromWiFi();
+
   // Mostramos la informacion en el monitor serie
   Serial.println("Location request data");
   Serial.println(location.getSurroundingWiFiJson());
   Serial.println("Latitude: " + String(loc.lat, 7));
   Serial.println("Longitude: " + String(loc.lon, 7));
   Serial.println("Accuracy: " + String(loc.accuracy));
-  
   //Genera el valor random para accion de eventos
   eventAction();
   
@@ -236,6 +236,7 @@ void loop() {
   peticionPut();
   // Esperamos 15 segundos
   //delay(15000);
+  
 }
 
 /********** FUNCION PARA OBTENER MAC COMO STRING **********/
@@ -258,13 +259,14 @@ String obtenerMac() {
 }
 
 void eventAction(){
+    eventType = "None";
     ran = random(100);
     ran = ran / 100;
-    if (ran < 0,2){
+    if (ran < 0.2){
       mf();
-      }else if (ran < 0,5){
+      }else if (ran < 0.5){
           choque();
-        }else if (ran < 0,8){
+        }else if (ran < 0.8){
             carril();
           }
 }
@@ -291,34 +293,20 @@ void peticionPut() {
     toSend += "\r\n" ;
     toSend += "Content-Type: application/json\r\n";
     String payload = "{\"carld\":";
+    payload += "\"";
     payload += carld;
+    payload += "\"";
     payload += ",";
     payload += "\"timestamp\":";
     payload += String(0);               //----------PREGUNTAR EN QUE FORMATO DEBE IR LA HORA----
     payload += ",";
     payload += "\"eventType\":";
+    payload += "\"";
     payload += eventType;
-    if (eventType == "mechanicFailure"){
-        payload += "{\"failureCode\":";
-        payload += String(failureCode);
-        payload += "}";
-    } else if(eventType == "crash"){
-        payload += "{\"aceleration\":";
-        payload += String(crashAceleration);
-        payload += ",";
-        payload += "\"timestamp\":";
-        payload += String(timestamp);
-        payload += "}";
-    } else if(eventType == "laneChanged"){
-        payload += "{\"oldLane\":";
-        payload += String(oldLane);
-        payload += ",";
-        payload += "\"newLane\":";
-        payload += String(newLane);
-        payload += "}";
-    }
+    payload += "\"";
     payload += ",";
     payload += "\"data\":";
+    payload += "{\"status\":";
     payload += "{\"fuelLevel\":";
     payload += String(fuelLevel);
     payload += ",";
@@ -337,7 +325,33 @@ void peticionPut() {
     payload += "\"lane\":";
     payload += String(lane);
     payload += "}";
-    payload += "\"}";
+    if (eventType == "mechanicFailure"){
+        payload += ",";
+        payload += "\"mechanicFailure\":";
+        payload += "{\"failureCode\":";
+        payload += String(failureCode);
+        payload += "}";
+    } else if(eventType == "crash"){
+        payload += ",";
+        payload += "\"crash\":";
+        payload += "{\"aceleration\":";
+        payload += String(crashAceleration);
+        payload += ",";
+        payload += "\"timestamp\":";
+        payload += String(timestamp);
+        payload += "}";
+    } else if(eventType == "laneChanged"){
+        payload += ",";
+        payload += "\"laneChanged\":";
+        payload += "{\"oldLane\":";
+        payload += String(oldLane);
+        payload += ",";
+        payload += "\"newLane\":";
+        payload += String(newLane);
+        payload += "}";
+    }
+    payload += "}";
+    payload += "}";
     payload += "\r\n";
     toSend += "Content-Length: " + String(payload.length()) + "\r\n";
     toSend += "\r\n";
