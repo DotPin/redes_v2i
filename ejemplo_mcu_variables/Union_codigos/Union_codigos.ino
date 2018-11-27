@@ -45,6 +45,7 @@ int oldLane;
 int newLane;
 int t = 1;
 float kms;
+boolean stop1 = false;
 
 //time
 unsigned long epoch;
@@ -66,40 +67,6 @@ byte packetBuffer[ NTP_PACKET_SIZE]; //buffer to hold incoming and outgoing pack
 // A UDP instance to let us send and receive packets over UDP
 WiFiUDP udp;
 
-/**********ciclo de eventos****/
-
-void mf(){
-  eventType = "mechanicFailure";
-  //r = sensorAuto() <---------permite saber a través de sensores que falla mecánica tiene
-  if (r==1){
-    failureCode=1;  //falla de motor
-  }else{
-    failureCode=2;  //falla de rueda
-  }
-  //Cambiar los valores en la funcion para que permanesca detenido
-}
-
-void choque(){
-  eventType = "crash";
-  crashAceleration = aceleration; //------la aceleracion al momento del choque
-  airBagsActivated = true;
-
-  //Cambiar los valores en la funcion para que permanesca detenido
-}
-
-void carril(){
-  eventType="laneChanged";
-  oldLane = lane;
-  if(lane == 1){
-    newLane= 2;
-  }else {
-    newLane= 1;
-  }
-  lane = newLane;
-}
-
-
-/******************************/
 
 //=======================================================================
 //                     SETUP
@@ -158,7 +125,40 @@ unsigned long sendNTPpacket(IPAddress& address){
 //=======================================================================
 void loop() {
   
-  char hours, minutes, seconds;
+  obtenerHora();
+  
+  //String path = "/dispositivo/80:7D:3A:6E:B5:CA/";
+  //String path = "/";
+  //FirebaseObject object = Firebase.get(path);
+  //int a = object.getInt("stop");
+  //Serial.println(a);
+
+  if (!stop1){
+    calcAceleration();
+    calcVelocidad();
+    calcRPM();
+    calcKM();
+    calcFuelLevel();
+  
+    //Genera el valor random para accion de eventos
+    eventAction();
+
+  }else {
+    //El vehiculo se detiene
+    kmh = 0;
+    rpm = 0;
+    aceleration = 0;
+  }
+  // Hacemos la peticion HTTP mediante el metodo PUT
+  peticionPut(); 
+}
+
+//=======================================================================
+//                        Obtener hora
+//=======================================================================
+
+void obtenerHora(){
+char hours, minutes, seconds;
   //get a random server from the pool
   WiFi.hostByName(ntpServerName, timeServerIP); 
 
@@ -232,48 +232,10 @@ void loop() {
     }
     Serial.println(seconds,DEC); // print the second
   }
-  // wait ten seconds before asking for the time again
-  //delay(10000);
-
-  /*
-  // Obtenemos la geolocalizacion WiFi
-  loc = location.getGeoFromWiFi();
-
-  // Mostramos la informacion en el monitor serie
-  Serial.println("Location request data");
-  Serial.println(location.getSurroundingWiFiJson());
-  Serial.println("Latitude: " + String(loc.lat, 7));
-  Serial.println("Longitude: " + String(loc.lon, 7));
-  Serial.println("Accuracy: " + String(loc.accuracy));
-  */
-  
-  //String path = "/dispositivo/80:7D:3A:6E:B5:CA/";
-  //String path = "/";
-  //FirebaseObject object = Firebase.get(path);
-  //int a = object.getInt("stop");
-  //Serial.println(a);
-
-  
-    calcAceleration();
-    calcVelocidad();
-    calcRPM();
-    calcKM();
-    calcFuelLevel();
-  
-    //Genera el valor random para accion de eventos
-    //eventAction();
-
-  
-    // Hacemos la peticion HTTP mediante el metodo PUT
-    peticionPut();
-
-  
-  // Esperamos 15 segundos
-  //delay(15000);
-  
 }
-
-/********** FUNCION PARA OBTENER MAC COMO STRING **********/
+//=======================================================================
+//                        Calculo de mac
+//=======================================================================
 String obtenerMac() {
   // Obtenemos la MAC del dispositivo
   WiFi.macAddress(mac);
@@ -292,6 +254,9 @@ String obtenerMac() {
   return keyMac;
 }
 
+//=======================================================================
+//                        Calculo de variables
+//=======================================================================
 void calcAceleration(){
   if(kmh < 50){
     aceleration = 4;
@@ -324,6 +289,40 @@ void calcFuelLevel(){
   Serial.println(fuelLevel);
   }
 
+//=======================================================================
+//                        Eventos
+//=======================================================================
+
+void mf(){
+  eventType = "mechanicFailure";
+  r = random(2);
+  if (r==1){
+    failureCode=1;  //falla de motor
+  }else{
+    failureCode=2;  //falla de rueda
+  }
+  stop1 = true;
+}
+
+void choque(){
+  eventType = "crash";
+  crashAceleration = aceleration; //------la aceleracion al momento del choque
+  airBagsActivated = true;
+
+  stop1 = true;
+}
+
+void carril(){
+  eventType="laneChanged";
+  oldLane = lane;
+  if(lane == 1){
+    newLane= 2;
+  }else {
+    newLane= 1;
+  }
+  lane = newLane;
+}
+
 void eventAction(){
     eventType = "None";
     ran = random(100);
@@ -337,6 +336,10 @@ void eventAction(){
           }
 }
 
+//=======================================================================
+//                        Captura de Stop
+//=======================================================================
+
 void capturarStop() {             //-----------FALTA SABER LA VARIABLE EXACTA QUE SE DEBE CAPTURAR-------------------
     String path = "/dispositivo/80:7D:3A:6E:B5:CA";
     //String path = "/";
@@ -345,7 +348,9 @@ void capturarStop() {             //-----------FALTA SABER LA VARIABLE EXACTA QU
     //Serial.println(d1);
   }
 
-/********** FUNCION QUE REALIZA LA PETICION PUT **************/
+//=======================================================================
+//                        Peticion PUT
+//=======================================================================
 void peticionPut() {
   // Cerramos cualquier conexion antes de enviar una nueva peticion
   client.stop();
