@@ -3,19 +3,24 @@
 
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
+
+#include <Firebase.h>
 #include <FirebaseArduino.h>
-#include "WifiLocation.h"
+#include <FirebaseObject.h>
+
+//#include "WifiLocation.h"
 
 
 #define GOOGLE_KEY "AIzaSyDP4SOZgPpJCEYormxf53cA9tnFIPoxArk" // Clave API Google Geolocation
-#define SSID "iPhone Tomas" // SSID de tu red WiFi
-#define PASSWD "asdfghjkl123" // Clave de tu red WiFi
+#define SSID "WIFI_SAJL2" // SSID de tu red WiFi
+#define PASSWD "QWERTYUIOP2715" // Clave de tu red WiFi
 #define HOSTFIREBASE "probando-nodemcu.firebaseio.com" // Host o url de Firebase
+#define SECRET_KEY "gCvdvpLM8L8ef47fobmhe5nPKvYJeIiLYO8gEtfs"
 #define LOC_PRECISION 7 // Precision de latitud y longitud
 
 // Llamada a la API de Google
-WifiLocation location(GOOGLE_KEY);
-location_t loc; // Estructura de datos que devuelve la librera WifiLocation
+//WifiLocation location(GOOGLE_KEY);
+//location_t loc; // Estructura de datos que devuelve la librera WifiLocation
 
 
 //-------Variables-------
@@ -23,12 +28,12 @@ byte mac[6];
 String macStr = "";
 String nombreComun = "NodeMCU";
 String carld = "CAQR";
-int timestamp = 1;
-float fuelLevel = 2;
-int km = 1;
-float aceleration = 0;
-int rpm = 30;
-int kmh = 50;
+//int timestamp;
+float fuelLevel = 50.5;
+float km = 0.5;
+int aceleration = 0;
+int rpm = 0;
+int kmh = 0;
 int lane = 1;
 int failureCode = 1;
 boolean airBagsActivated = false;
@@ -38,6 +43,8 @@ int r = 1;
 float crashAceleration;
 int oldLane;
 int newLane;
+int t = 1;
+float kms;
 
 //time
 unsigned long epoch;
@@ -59,7 +66,6 @@ byte packetBuffer[ NTP_PACKET_SIZE]; //buffer to hold incoming and outgoing pack
 // A UDP instance to let us send and receive packets over UDP
 WiFiUDP udp;
 
-
 /**********ciclo de eventos****/
 
 void mf(){
@@ -70,14 +76,15 @@ void mf(){
   }else{
     failureCode=2;  //falla de rueda
   }
+  //Cambiar los valores en la funcion para que permanesca detenido
 }
 
 void choque(){
   eventType = "crash";
   crashAceleration = aceleration; //------la aceleracion al momento del choque
-  aceleration = 0;
-  kmh = 0;
   airBagsActivated = true;
+
+  //Cambiar los valores en la funcion para que permanesca detenido
 }
 
 void carril(){
@@ -115,7 +122,8 @@ void setup() {
   macStr = obtenerMac();
   Serial.print("MAC NodeMCU: ");
   Serial.println(macStr);
-  Firebase.begin("probando-nodemcu.firebaseio.com","STWipVGkAquf5p4ryBvIwrj6WtV41imjIBvpfcsj");
+
+  Firebase.begin(HOSTFIREBASE,SECRET_KEY);
 }
 
 
@@ -157,7 +165,7 @@ void loop() {
   sendNTPpacket(timeServerIP); // send an NTP packet to a time server
   
   // wait to see if a reply is available
-  delay(1000);
+  //delay(1000);
   
   int cb = udp.parsePacket();
   if (!cb) {
@@ -239,11 +247,27 @@ void loop() {
   Serial.println("Accuracy: " + String(loc.accuracy));
   */
   
-  //Genera el valor random para accion de eventos
-  eventAction();
+  //String path = "/dispositivo/80:7D:3A:6E:B5:CA/";
+  //String path = "/";
+  //FirebaseObject object = Firebase.get(path);
+  //int a = object.getInt("stop");
+  //Serial.println(a);
+
   
-  // Hacemos la peticion HTTP mediante el metodo PUT
-  peticionPut();
+    calcAceleration();
+    calcVelocidad();
+    calcRPM();
+    calcKM();
+    calcFuelLevel();
+  
+    //Genera el valor random para accion de eventos
+    //eventAction();
+
+  
+    // Hacemos la peticion HTTP mediante el metodo PUT
+    peticionPut();
+
+  
   // Esperamos 15 segundos
   //delay(15000);
   
@@ -268,6 +292,38 @@ String obtenerMac() {
   return keyMac;
 }
 
+void calcAceleration(){
+  if(kmh < 50){
+    aceleration = 4;
+  }else{
+    aceleration = 0;
+  }
+}
+
+void calcVelocidad(){
+  kmh = kmh + aceleration;
+}
+
+void calcRPM(){
+  if(kmh < 15){
+      rpm = kmh * 167;
+    }else if(kmh < 60 ){
+        rpm = ((kmh%15)*67)+1500;
+      }
+}
+
+void calcKM(){
+  kms = (float)kmh / 300.0; //km por segundo
+  km = km + kms;
+  Serial.println(km);
+  
+  }
+
+void calcFuelLevel(){
+  fuelLevel = fuelLevel - (kms/10.0); //rinde 10 km/litro
+  Serial.println(fuelLevel);
+  }
+
 void eventAction(){
     eventType = "None";
     ran = random(100);
@@ -283,8 +339,10 @@ void eventAction(){
 
 void capturarStop() {             //-----------FALTA SABER LA VARIABLE EXACTA QUE SE DEBE CAPTURAR-------------------
     String path = "/dispositivo/80:7D:3A:6E:B5:CA";
+    //String path = "/";
     FirebaseObject object = Firebase.get(path);
-    String d1 = object.getString("carld");
+    int d1 = object.getInt("stop");
+    //Serial.println(d1);
   }
 
 /********** FUNCION QUE REALIZA LA PETICION PUT **************/
@@ -318,22 +376,22 @@ void peticionPut() {
     payload += "\"data\":";
     payload += "{\"status\":";
     payload += "{\"fuelLevel\":";
-    payload += String(fuelLevel);
+    payload += fuelLevel;
     payload += ",";
     payload += "\"Km\":";
-    payload += String(km);
+    payload += km;
     payload += ",";
     payload += "\"Aceleration\":";
-    payload += String(aceleration);
+    payload += aceleration;
     payload += ",";
     payload += "\"rpm\":";
-    payload += String(rpm);
+    payload += rpm;
     payload += ",";
     payload += "\"kmh\":";
-    payload += String(kmh);
+    payload += kmh;
     payload += ",";
     payload += "\"lane\":";
-    payload += String(lane);
+    payload += lane;
     payload += "}";
     if (eventType == "mechanicFailure"){
         payload += ",";
@@ -347,8 +405,8 @@ void peticionPut() {
         payload += "{\"aceleration\":";
         payload += String(crashAceleration);
         payload += ",";
-        payload += "\"timestamp\":";
-        payload += String(timestamp);
+        payload += "\"airBagsActivated\":";
+        payload += String(airBagsActivated);
         payload += "}";
     } else if(eventType == "laneChanged"){
         payload += ",";
