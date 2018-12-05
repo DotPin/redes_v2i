@@ -325,13 +325,11 @@ void carril(){
 
 void eventAction(){
     eventType = "None";
-    ran = random(100);
-    ran = ran / 100;
-    if (ran < 0.2){
+    if ((random(100)/100) < 0.2){
       mf();
-      }else if (ran < 0.5){
+      }else if ((random(100)/100)< 0.5){
           choque();
-        }else if (ran < 0.8){
+        }else if ((random(100)/100) < 0.8){
             carril();
           }
 }
@@ -340,13 +338,16 @@ void eventAction(){
 //                        Captura de Stop
 //=======================================================================
 
-void capturarStop() {             //-----------FALTA SABER LA VARIABLE EXACTA QUE SE DEBE CAPTURAR-------------------
-    String path = "/dispositivo/80:7D:3A:6E:B5:CA";
-    //String path = "/";
+void capturarStop() {
+    String path = "/";
     FirebaseObject object = Firebase.get(path);
     int d1 = object.getInt("stop");
-    //Serial.println(d1);
-  }
+    if (d1 == 1){
+      stop1 = true;
+    }else {
+      stop1 = false;
+    }
+}
 
 //=======================================================================
 //                        Peticion PUT
