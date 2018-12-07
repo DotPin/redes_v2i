@@ -282,6 +282,8 @@ void capturarStop() {
     String path = "/";
     FirebaseObject object = Firebase.get(path);
     int d1 = object.getInt("stop");
+    Serial.println("Captura stop!:");
+    Serial.println(d1);
     if (d1 == 1){
       stop1 = true;
     }else {
