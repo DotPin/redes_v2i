@@ -38,7 +38,7 @@ int lane = 1;
 int failureCode = 1;
 boolean airBagsActivated = false;
 String eventType = "None";
-float ran = 0;
+int ran = 0;
 int r = 1;
 float crashAceleration;
 int oldLane;
@@ -265,13 +265,16 @@ void carril(){
 
 void eventAction(){
     eventType = "None";
-    if ((random(100)/100) < 0.2){
+    ran = random(100);
+    Serial.println("Event random");
+    Serial.println(ran);
+    if (ran < 20){
       mf();
-      }else if ((random(100)/100)< 0.5){
+      }else if (ran < 50){
           choque();
-        }else if ((random(100)/100) < 0.8){
+      }else if (ran < 80){
             carril();
-          }
+      }
 }
 
 //=======================================================================
