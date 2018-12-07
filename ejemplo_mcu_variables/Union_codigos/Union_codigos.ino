@@ -12,8 +12,8 @@
 
 
 #define GOOGLE_KEY "AIzaSyDP4SOZgPpJCEYormxf53cA9tnFIPoxArk" // Clave API Google Geolocation
-#define SSID "WIFI_SAJL2" // SSID de tu red WiFi
-#define PASSWD "QWERTYUIOP2715" // Clave de tu red WiFi
+#define SSID "iPhone Tomas" // SSID de tu red WiFi
+#define PASSWD "asdfghjkl123" // Clave de tu red WiFi
 #define HOSTFIREBASE "probando-nodemcu.firebaseio.com" // Host o url de Firebase
 #define SECRET_KEY "gCvdvpLM8L8ef47fobmhe5nPKvYJeIiLYO8gEtfs"
 #define LOC_PRECISION 7 // Precision de latitud y longitud
@@ -67,33 +67,6 @@ byte packetBuffer[ NTP_PACKET_SIZE]; //buffer to hold incoming and outgoing pack
 // A UDP instance to let us send and receive packets over UDP
 WiFiUDP udp;
 
-
-//=======================================================================
-//                     SETUP
-//=======================================================================
-void setup() {
-  Serial.begin(115200);
-  // Conexion con la red WiFi
-  while (WiFi.status() != WL_CONNECTED) {
-    Serial.print("Attempting to connect to WPA SSID: ");
-    Serial.println(SSID);
-    // Connect to WPA/WPA2 network:
-    WiFi.begin(SSID, PASSWD);
-    // wait 5 seconds for connection:
-    delay(5000);
-    Serial.print("Status = ");
-    Serial.println(WiFi.status());
-  }
-  udp.begin(localPort);
-  // Obtenemos la MAC como cadena de texto
-  macStr = obtenerMac();
-  Serial.print("MAC NodeMCU: ");
-  Serial.println(macStr);
-
-  Firebase.begin(HOSTFIREBASE,SECRET_KEY);
-}
-
-
 unsigned long sendNTPpacket(IPAddress& address){
   Serial.println("sending NTP packet...");
   // set all bytes in the buffer to 0
@@ -119,39 +92,6 @@ unsigned long sendNTPpacket(IPAddress& address){
   udp.endPacket();
 }
 
-
-//=======================================================================
-//                        LOOP
-//=======================================================================
-void loop() {
-  
-  obtenerHora();
-  
-  //String path = "/dispositivo/80:7D:3A:6E:B5:CA/";
-  //String path = "/";
-  //FirebaseObject object = Firebase.get(path);
-  //int a = object.getInt("stop");
-  //Serial.println(a);
-
-  if (!stop1){
-    calcAceleration();
-    calcVelocidad();
-    calcRPM();
-    calcKM();
-    calcFuelLevel();
-  
-    //Genera el valor random para accion de eventos
-    eventAction();
-
-  }else {
-    //El vehiculo se detiene
-    kmh = 0;
-    rpm = 0;
-    aceleration = 0;
-  }
-  // Hacemos la peticion HTTP mediante el metodo PUT
-  peticionPut(); 
-}
 
 //=======================================================================
 //                        Obtener hora
@@ -301,7 +241,7 @@ void mf(){
   }else{
     failureCode=2;  //falla de rueda
   }
-  stop1 = true;
+  //stop1 = true;
 }
 
 void choque(){
@@ -309,7 +249,7 @@ void choque(){
   crashAceleration = aceleration; //------la aceleracion al momento del choque
   airBagsActivated = true;
 
-  stop1 = true;
+  //stop1 = true;
 }
 
 void carril(){
@@ -442,4 +382,60 @@ void peticionPut() {
     client.stop();
     Serial.println("Algo ha ido mal");
   }
+}
+
+//=======================================================================
+//                     SETUP
+//=======================================================================
+void setup() {
+  Serial.begin(115200);
+  // Conexion con la red WiFi
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print("Attempting to connect to WPA SSID: ");
+    Serial.println(SSID);
+    // Connect to WPA/WPA2 network:
+    WiFi.begin(SSID, PASSWD);
+    // wait 5 seconds for connection:
+    delay(5000);
+    Serial.print("Status = ");
+    Serial.println(WiFi.status());
+  }
+  udp.begin(localPort);
+  // Obtenemos la MAC como cadena de texto
+  macStr = obtenerMac();
+  Serial.print("MAC NodeMCU: ");
+  Serial.println(macStr);
+
+  Firebase.begin(HOSTFIREBASE,SECRET_KEY);
+}
+
+
+//=======================================================================
+//                        LOOP
+//=======================================================================
+void loop() {
+  
+  obtenerHora();
+  capturarStop(); 
+  
+  if (!stop1){
+    calcAceleration();
+    calcVelocidad();
+    calcRPM();
+    calcKM();
+    calcFuelLevel();
+  
+    //Genera el valor random para accion de eventos
+    eventAction();
+    Serial.println("Auto dice RUN");
+
+  }else {
+    //El vehiculo se detiene
+    kmh = 0;
+    rpm = 0;
+    aceleration = 0;
+    Serial.println("Auto dice STOP");
+  }
+  // Hacemos la peticion HTTP mediante el metodo PUT
+  peticionPut(); 
 }
